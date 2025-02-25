@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Émetteur Audio</title>
+    <style>
+      .container {
+        max-width: 600px;
+        margin: 50px auto;
+        padding: 20px;
+        background: #f5f5f5;
+        border-radius: 8px;
+      }
+      .controls {
+        display: flex;
+        gap: 10px;
+        margin: 20px 0;
+      }
+      button {
+        padding: 10px 20px;
+        border-radius: 4px;
+        border: none;
+        background: #4caf50;
+        color: white;
+        cursor: pointer;
+      }
+      button:disabled {
+        background: #ccc;
+      }
+      #status {
+        padding: 10px;
+        margin: 10px 0;
+        border-radius: 4px;
+      }
+      .visualizer {
+        height: 100px;
+        background: #000;
+        margin: 20px 0;
+        border-radius: 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h2>Émetteur de Messages Vocaux</h2>
+      <div id="status">Prêt à enregistrer</div>
+
+      <div class="controls">
+        <button id="startRecord">Commencer l'enregistrement</button>
+        <button id="stopRecord" disabled>Arrêter l'enregistrement</button>
+        <button id="playback" disabled>Écouter</button>
+        <button id="send" disabled>Envoyer</button>
+      </div>
+
+      <div class="visualizer">
+        <canvas id="audioVisualizer"></canvas>
+      </div>
+
+      <div id="messagesList">
+        <h3>Messages envoyés :</h3>
+        <ul id="messages"></ul>
+      </div>
+    </div>
+
+    <script>
+      class AudioSender {
+        constructor() {
+          this.mediaRecorder = null;
+          this.audioChunks = [];
+          this.audioBlob = null;
+          this.isRecording = false;
+
+          this.setupUI();
+          this.setupAudioContext();
+        }
+
+        setupUI() {
+          this.startButton = document.getElementById("startRecord");
+          this.stopButton = document.getElementById("stopRecord");
+          this.playButton = document.getElementById("playback");
+          this.sendButton = document.getElementById("send");
+          this.status = document.getElementById("status");
+          this.messages = document.getElementById("messages");
+
+          this.startButton.onclick = () => this.startRecording();
+          this.stopButton.onclick = () => this.stopRecording();
+          this.playButton.onclick = () => this.playRecording();
+          this.sendButton.onclick = () => this.sendRecording();
+        }
+
+        setupAudioContext() {
+          this.audioContext = new (window.AudioContext ||
+            window.webkitAudioContext)();
+          this.analyser = this.audioContext.createAnalyser();
+          this.setupVisualizer();
+        }
+
+        setupVisualizer() {
+          this.canvas = document.getElementById("audioVisualizer");
+          this.canvasCtx = this.canvas.getContext("2d");
+          this.canvas.width = this.canvas.offsetWidth;
+          this.canvas.height = this.canvas.offsetHeight;
+        }
+
+        async startRecording() {
+          try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+              audio: true,
+            });
+            this.mediaRecorder = new MediaRecorder(stream);
+            this.audioChunks = [];
+
+            this.mediaRecorder.ondataavailable = (event) => {
+              this.audioChunks.push(event.data);
+            };
+
+            this.mediaRecorder.onstop = () => {
+              this.audioBlob = new Blob(this.audioChunks, {
+                type: "audio/wav",
+              });
+              this.playButton.disabled = false;
+              this.sendButton.disabled = false;
+            };
+
+            this.mediaRecorder.start();
+            this.isRecording = true;
+            this.updateUI("Enregistrement en cours...");
+            this.startVisualizer(stream);
+          } catch (err) {
+            console.error("Erreur:", err);
+            this.updateUI("Erreur d'accès au microphone", true);
+          }
+        }
+
+        stopRecording() {
+          if (this.mediaRecorder) {
+            this.mediaRecorder.stop();
+            this.isRecording = false;
+            this.updateUI("Enregistrement terminé");
+          }
+        }
+
+        playRecording() {
+          if (this.audioBlob) {
+            const audio = new Audio(URL.createObjectURL(this.audioBlob));
+            audio.play();
+          }
+        }
+
+        sendRecording() {
+          if (this.audioBlob) {
+            // Ici, vous pouvez implémenter l'envoi au serveur
+            const timestamp = new Date().toLocaleTimeString();
+            const li = document.createElement("li");
+            li.textContent = `Message envoyé à ${timestamp}`;
+            this.messages.prepend(li);
+            this.updateUI("Message envoyé !");
+          }
+        }
+
+        updateUI(message, isError = false) {
+          this.status.textContent = message;
+          this.status.style.background = isError ? "#f44336" : "#4CAF50";
+          this.status.style.color = "white";
+
+          this.startButton.disabled = this.isRecording;
+          this.stopButton.disabled = !this.isRecording;
+        }
+
+        startVisualizer(stream) {
+          const source = this.audioContext.createMediaStreamSource(stream);
+          source.connect(this.analyser);
+          this.analyser.fftSize = 2048;
+          const bufferLength = this.analyser.frequencyBinCount;
+          const dataArray = new Uint8Array(bufferLength);
+
+          const draw = () => {
+            if (!this.isRecording) return;
+            requestAnimationFrame(draw);
+
+            this.analyser.getByteTimeDomainData(dataArray);
+            this.canvasCtx.fillStyle = "rgb(0, 0, 0)";
+            this.canvasCtx.fillRect(
+              0,
+              0,
+              this.canvas.width,
+              this.canvas.height
+            );
+            this.canvasCtx.lineWidth = 2;
+            this.canvasCtx.strokeStyle = "rgb(0, 255, 0)";
+            this.canvasCtx.beginPath();
+
+            const sliceWidth = (this.canvas.width * 1.0) / bufferLength;
+            let x = 0;
+
+            for (let i = 0; i < bufferLength; i++) {
+              const v = dataArray[i] / 128.0;
+              const y = (v * this.canvas.height) / 2;
+
+              if (i === 0) {
+                this.canvasCtx.moveTo(x, y);
+              } else {
+                this.canvasCtx.lineTo(x, y);
+              }
+
+              x += sliceWidth;
+            }
+
+            this.canvasCtx.lineTo(this.canvas.width, this.canvas.height / 2);
+            this.canvasCtx.stroke();
+          };
+
+          draw();
+        }
+      }
+
+      // Initialisation
+      document.addEventListener("DOMContentLoaded", () => {
+        new AudioSender();
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Reconnaissance Vocale</title>
+    <link rel="stylesheet" href="css/styles.css" />
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+  </head>
+  <body>
+    <div class="container">
+      <!-- Section de contrôle de la reconnaissance vocale -->
+      <div class="voice-controls">
+        <h1>Reconnaissance Vocale</h1>
+        <div class="controls">
+          <button id="startButton">Démarrer l'écoute</button>
+          <button id="stopButton" disabled>Arrêter l'écoute</button>
+        </div>
+        <div class="results">
+          <h2>Transcription :</h2>
+          <div id="output"></div>
+        </div>
+      </div>
+
+      <!-- Pages de l'application -->
+      <div class="pages">
+        <div id="home" class="page active">
+          <h2>Accueil</h2>
+          <p>
+            Bienvenue ! Dites "ouvre contacts" pour voir la liste des contacts.
+          </p>
+        </div>
+
+        <div id="contacts" class="page">
+          <h2>Contacts</h2>
+          <div class="contacts-list">
+            <div class="contact-card">
+              <h3>John Doe</h3>
+              <p>📧 john@example.com</p>
+              <p>📱 06 12 34 56 78</p>
+            </div>
+            <div class="contact-card">
+              <h3>Jane Smith</h3>
+              <p>📧 jane@example.com</p>
+              <p>📱 06 98 76 54 32</p>
+            </div>
+          </div>
+        </div>
+
+        <div id="settings" class="page">
+          <h2>Paramètres</h2>
+          <div class="settings-options">
+            <div class="setting-item">
+              <label>Mode sombre</label>
+              <input type="checkbox" id="darkModeToggle" />
+            </div>
+            <div class="setting-item">
+              <label>Volume</label>
+              <input type="range" min="0" max="100" value="50" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="visualization">
+        <div
+          id="d3-container"
+          style="width: 800px; height: 300px; background: #f0f0f0"
+        ></div>
+        <canvas id="frequencyCanvas"></canvas>
+      </div>
+      <div class="commands-help">
+        <h3>Commandes disponibles :</h3>
+        <ul>
+          <li>"ouvre contacts"</li>
+          <li>"ouvre accueil"</li>
+          <li>"ouvre paramètres"</li>
+          <li>"active mode sombre"</li>
+          <li>"active son"</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Chargez les scripts dans le bon ordre -->
+    <script src="js/signalProcessor.js"></script>
+    <script src="js/commands.js"></script>
+    <script src="js/script.js"></script>
+    <script src="js/D3.js"></script>
+  </body>
+</html>
